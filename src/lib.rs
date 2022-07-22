@@ -1,10 +1,10 @@
-use std::collections::BTreeSet;
-use num_traits::{Float, PrimInt, Num, NumOps, NumRef};
+use num_traits::{Float, PrimInt};
 
 pub mod pair;
 pub mod error;
 use pair::{Pair, InterpNum};
 use error::{Result, InterpError};
+
 
 
 pub struct Interp1d<T: InterpNum, U: Float> {

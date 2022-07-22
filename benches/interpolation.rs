@@ -1,7 +1,6 @@
-use interp1d::{Interp1d, pair::InterpNum};
+use interp1d::Interp1d;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use num_traits::Float;
 
 
 fn create_unsorted_float_double(n: usize) -> Interp1d<f64, f64> {
