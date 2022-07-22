@@ -11,6 +11,8 @@ thiserror = "1.0.31"
 
 [dev-dependencies]
 criterion = "0.3.6"
+rand = "0.8.5"
+rayon = "1.5.3"
 
 [[bench]]
 name = "interpolation"
