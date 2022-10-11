@@ -1,7 +1,8 @@
 use interp1d::Interp1d;
 
 
-fn main() {
+#[test]
+fn test_integer() {
 
     // Data (already sorted)
     let x: Vec<usize> = vec![1, 3, 5];
@@ -13,12 +14,12 @@ fn main() {
     // Points at which we wish to interpolate
     let x_interp = vec![2, 4];
 
-    // Intepolate with checked fn
+    // Intepolate
     let y_interp: Vec<f64> = x_interp
         .iter()
         .map(|&x| interpolator.interpolate_checked_converted(x))
         .collect::<Result<Vec<f64>, _>>()
         .unwrap(); // all points are in the domain in this example
     
-    println!("y_interp = {y_interp:?}");
+    assert_eq!(y_interp, vec![4.0, 3.5]);
 }

@@ -17,4 +17,7 @@ pub enum InterpError{
              Point is to the left of all data. \
              point: {point}; min: {max}")]
     OutOfRangeRight { point: String, max: String },
+
+    #[error("U -> T try_from conversion failed")]
+    ValueFromTFailed
 }

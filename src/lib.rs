@@ -1,13 +1,14 @@
+use std::ops::{Div, Mul};
+
 use num_traits::{Float, PrimInt};
 
 pub mod pair;
 pub mod error;
-use pair::{Pair, InterpNum};
+use pair::{Pair, InterpNum, InterpFloat};
 use error::{Result, InterpError};
+use conv::prelude::*;
 
-
-
-pub struct Interp1d<T: InterpNum, U: Float> {
+pub struct Interp1d<T: InterpNum, U: InterpFloat> {
     /// This vec must be sorted!
     inner: Vec<Pair<T, U>>,
     size: usize,
@@ -15,7 +16,7 @@ pub struct Interp1d<T: InterpNum, U: Float> {
     max: T,
 }
 
-impl<T: InterpNum, U: Float> Interp1d<T, U> {
+impl<T: InterpNum, U: InterpFloat> Interp1d<T, U> {
 
     /// This creates a new interpolator from unsorted floats
     pub fn new_unsorted<I: Float + InterpNum>(x: Vec<I>, y: Vec<U>) -> Result<Interp1d<T, U>>
@@ -148,8 +149,11 @@ impl<T: InterpNum, U: Float> Interp1d<T, U> {
 
     /// Interpolation for a single point. This is checked for whether the point is out of bounds,
     /// returning an error with either [InterpError::OutOfRangeLeft] or [InterpError::OutOfRangeLeft]
-    /// if the point is out of the domain.
-    pub fn interpolate_checked(&self, x: T) -> Result<U> {
+    /// if the point is out of the domain. 
+    pub fn interpolate_checked(&self, x: T) -> Result<U> 
+    where
+        U: Div<T, Output=U> + Mul<T, Output=U>,
+    {
 
         match self.inner.binary_search_by(|a| a.x.partial_cmp(&x).expect("When creating the inner, the values were checked")) {
 
@@ -179,7 +183,62 @@ impl<T: InterpNum, U: Float> Interp1d<T, U> {
                         let left_pair = self.inner[index-1];
                         let right_pair = self.inner[index];
 
-                        let interp_value = left_pair.y + (right_pair.y - left_pair.y)/U::from(right_pair.x - left_pair.x).unwrap() * U::from(x - left_pair.x).unwrap();
+                        let interp_value = left_pair.y 
+                            + (right_pair.y - left_pair.y)/(right_pair.x - left_pair.x) * (x - left_pair.x);
+                        Ok(interp_value)
+                    },
+
+                    Region::Right => {
+
+                        // Out of range, right
+                        let point = format!("{x}");
+                        let max = format!("{}", self.max);
+                        Err(InterpError::OutOfRangeRight {point, max})
+                    }
+                }
+            }
+        }
+    }
+
+    /// Interpolation for a single point. This is checked for whether the point is out of bounds,
+    /// returning an error with either [InterpError::OutOfRangeLeft] or [InterpError::OutOfRangeLeft]
+    /// if the point is out of the domain. Note: This uses `U: ValueFrom<T>` and returns [InterpError::ValueFromTFailed]
+    /// if the conversion fails.
+    pub fn interpolate_checked_converted(&self, x: T) -> Result<U> 
+    where
+        U: ValueFrom<T>
+    {
+
+        match self.inner.binary_search_by(|a| a.x.partial_cmp(&x).expect("When creating the inner, the values were checked")) {
+
+
+            Ok(index) => {
+
+                // x is in the data already, so return value in inner
+                Ok(self.inner[index].y)
+            },
+
+
+            Err(index) => {
+
+                // x is not in the data already, so interpolate if possible
+                match self.determine_region(index) {
+
+                    Region::Left => { 
+
+                        // Out of range, left
+                        let point = format!("{x}");
+                        let min = format!("{}", self.min);
+                        Err(InterpError::OutOfRangeLeft {point, min})
+                    },
+
+                    Region::Inside => {
+                        
+                        let left_pair = self.inner[index-1];
+                        let right_pair = self.inner[index];
+
+                        let interp_value = left_pair.y 
+                            + (right_pair.y - left_pair.y)/(right_pair.x - left_pair.x).value_as().map_err(|_| InterpError::ValueFromTFailed)? * (x - left_pair.x).value_as().map_err(|_| InterpError::ValueFromTFailed)?;
                         Ok(interp_value)
                     },
 
@@ -196,8 +255,12 @@ impl<T: InterpNum, U: Float> Interp1d<T, U> {
     }
 
     /// Interpolation for a single point. If a point is out of the domain, the closest value
-    /// (i.e. the edge value) is returned.
-    pub fn interpolate(&self, x: T) -> U {
+    /// (i.e. the edge value) is returned. This will return incorrect results if the internal
+    /// data is not sorted, so ensure you initialized the type properly.
+    pub fn interpolate(&self, x: T) -> U
+    where
+        U: Div<T, Output=U> + Mul<T, Output=U>,
+    {
 
         match self.inner.binary_search_by(|a| a.x.partial_cmp(&x).expect("When creating the inner, the values were checked")) {
 
@@ -225,7 +288,8 @@ impl<T: InterpNum, U: Float> Interp1d<T, U> {
                         let left_pair = self.inner[index-1];
                         let right_pair = self.inner[index];
 
-                        let interp_value = left_pair.y + (right_pair.y - left_pair.y)/U::from(right_pair.x - left_pair.x).unwrap() * U::from(x - left_pair.x).unwrap();
+                        let interp_value = left_pair.y 
+                            + (right_pair.y - left_pair.y)/(right_pair.x - left_pair.x)/*.value_as().map_err(|_| InterpError::ValueFromTFailed).unwrap() */ * (x - left_pair.x);//.value_as().map_err(|_| InterpError::ValueFromTFailed).unwrap();
                         interp_value
                     },
 
